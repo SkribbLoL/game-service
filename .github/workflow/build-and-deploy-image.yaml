@@ -1,0 +1,30 @@
+name: build and deploy image
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v3
+
+    - name: 🟢 Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    - name: 📦 Install dependencies
+      run: npm ci
+
+    - name: ✅ Lint
+      run: npm run lint # make sure you have a lint script in package.json
+
+    - name: 🧪 Run tests
+      run: npm test # make sure you have a test script or use Vitest/Jest
