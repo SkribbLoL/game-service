@@ -1,31 +1,46 @@
 const express = require('express');
 const cors = require('cors');
-const { createClient } = require('redis');
+const http = require('http');
+const socketSingleton = require('./SocketSingleton');
+const redisClient = require('./RedisSingleton');
+
+// Import socket handlers
+const roomSocketHandler = require('./socket-handlers/RoomSocketHandler');
+const drawingSocketHandler = require('./socket-handlers/DrawingSocketHandler');
 
 const app = express();
-const port = 5000;
-
-// Redis setup
-const client = createClient({ url: 'redis://redis:6379' }); // use your docker host name
-
-client.on('error', (err) => console.log('Redis Client Error', err));
+const server = http.createServer(app);
+const port = process.env.PORT || 5000;
 
 // Load router
-const roomRouter = require('./routers/RoomRouter'); // change .ts to .js if you're not using TypeScript
+const roomRouter = require('./routers/RoomRouter');
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 app.use("/rooms", roomRouter);
 
+// Initialize Socket.io singleton
+socketSingleton.setup(server);
+
+// Initialize socket handlers
+roomSocketHandler.initialize();
+drawingSocketHandler.initialize();
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Start the server
 (async () => {
   try {
-    await client.connect(); // connect to Redis
+    // Log errors better
+    process.on('unhandledRejection', (error) => {
+      console.error('Unhandled Promise Rejection:', error);
+    });
 
-    // Attach Redis to app locals (optional, for access in routes)
-    app.locals.redis = client;
-    client.on('error', err => console.log('Redis Client Error', err));
-
-    app.listen(port, () => {
+    server.listen(port, () => {
       console.log(`Game service running on http://localhost:${port}`);
     });
 

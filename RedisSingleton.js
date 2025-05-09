@@ -25,9 +25,16 @@ class RedisClient {
     return this.client.get(key);
   }
   
-  async set(key, value) {
-    console.log('Key' + key, 'Value' + value);
+  async set(key, value, expiryFlag, expiryTime) {
+    console.log('Key: ' + key, 'Value: ' + value);
+    if (expiryFlag && expiryTime) {
+      return this.client.set(key, value, expiryFlag, expiryTime);
+    }
     return this.client.set(key, value);
+  }
+  
+  async del(key) {
+    return this.client.del(key);
   }
   
   // Add other Redis methods you need
