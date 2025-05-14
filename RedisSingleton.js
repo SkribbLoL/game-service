@@ -9,10 +9,18 @@ class RedisClient {
     }
 
     this.client = new Redis({
-      host: process.env.REDIS_HOST || 'redis',
-      port: process.env.REDIS_PORT || 6379,
-      // Add other options as needed
+      host: process.env.REDIS_HOST,
+      port: Number(process.env.REDIS_PORT),
+      password: process.env.REDIS_PASSWORD,
     });
+    console.log(
+      'Redis client initialized with host:',
+      process.env.REDIS_HOST,
+      'port:',
+      process.env.REDIS_PORT,
+      'password:',
+      process.env.REDIS_PASSWORD
+    );
 
     // Handle connection events
     this.client.on('error', (err) => console.error('Redis error:', err));
