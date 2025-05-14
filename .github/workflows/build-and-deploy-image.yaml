@@ -1,24 +1,35 @@
-name: build and deploy image
-
+name: Build and Deploy Job Write API
+# test
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+
+env:
+  IMG_NAME: veljkoskrbic/skribblol-game-service
 
 jobs:
-  build:
-
+  build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - name: 🔄 Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: 🟢 Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
+      - name: Get short SHA
+        uses: benjlevesque/short-sha@v3.0
+        id: short-sha
 
-    - name: 📦 Install dependencies
-      run: npm ci
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: veljkoskrbic
+          password: ${{secrets.DOCKERHUB_PASS}}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{env.IMG_NAME}}:${{steps.short-sha.outputs.sha}}
+            ${{env.IMG_NAME}}:latest
