@@ -1,5 +1,5 @@
-name: Build and Deploy Job Write API
-# test
+name: Build and Deploy Game Service API
+
 on:
   push:
     branches:
@@ -15,6 +15,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'  # or your project's version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
       - name: Get short SHA
         uses: benjlevesque/short-sha@v3.0
         id: short-sha
@@ -23,7 +34,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: veljkoskrbic
-          password: ${{secrets.DOCKERHUB_PASS}}
+          password: ${{ secrets.DOCKERHUB_PASS }}
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
@@ -31,5 +42,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{env.IMG_NAME}}:${{steps.short-sha.outputs.sha}}
-            ${{env.IMG_NAME}}:latest
+            ${{ env.IMG_NAME }}:${{ steps.short-sha.outputs.sha }}
+            ${{ env.IMG_NAME }}:latest
