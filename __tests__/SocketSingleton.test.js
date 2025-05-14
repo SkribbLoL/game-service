@@ -7,7 +7,7 @@ jest.mock('socket.io', () => {
   return jest.fn().mockImplementation(() => {
     return {
       on: jest.fn(),
-      emit: jest.fn()
+      emit: jest.fn(),
     };
   });
 });
@@ -38,21 +38,24 @@ describe('SocketSingleton Tests', () => {
 
     // Assert
     expect(io).toBeDefined();
-    expect(require('socket.io')).toHaveBeenCalledWith(mockServer, expect.any(Object));
+    expect(require('socket.io')).toHaveBeenCalledWith(
+      mockServer,
+      expect.any(Object)
+    );
   });
 
   test('should return existing io instance if already initialized', () => {
     // Arrange
     const socketSingleton = require('../SocketSingleton');
     const mockServer = {}; // Mock HTTP server
-    
+
     // First initialization
     const io1 = socketSingleton.setup(mockServer);
-    
+
     // Socket.io should be called only once
     const socketIoMock = require('socket.io');
     socketIoMock.mockClear();
-    
+
     // Act - Call setup again
     const io2 = socketSingleton.setup(mockServer);
 
@@ -84,4 +87,4 @@ describe('SocketSingleton Tests', () => {
     // Assert
     expect(result).toBe(io);
   });
-}); 
+});

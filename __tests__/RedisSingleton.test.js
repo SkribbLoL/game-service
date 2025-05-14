@@ -9,16 +9,16 @@ jest.mock('ioredis', () => {
     const mockStore = new Map();
     return {
       on: jest.fn().mockReturnThis(),
-      get: jest.fn().mockImplementation(key => {
+      get: jest.fn().mockImplementation((key) => {
         return Promise.resolve(mockStore.get(key) || null);
       }),
       set: jest.fn().mockImplementation((key, value) => {
         mockStore.set(key, value);
         return Promise.resolve('OK');
       }),
-      del: jest.fn().mockImplementation(key => {
+      del: jest.fn().mockImplementation((key) => {
         return Promise.resolve(mockStore.delete(key) ? 1 : 0);
-      })
+      }),
     };
   });
 });
@@ -36,7 +36,7 @@ describe('RedisSingleton Tests', () => {
     // Setup a spy on the implementation
     const setMock = jest.spyOn(redisClient, 'set');
     const getMock = jest.spyOn(redisClient, 'get');
-    
+
     // Test data
     const testKey = 'test-key';
     const testValue = 'test-value';
@@ -44,7 +44,7 @@ describe('RedisSingleton Tests', () => {
     // Act
     await redisClient.set(testKey, testValue);
     expect(setMock).toHaveBeenCalledWith(testKey, testValue);
-    
+
     // Mock the get response
     getMock.mockResolvedValueOnce(testValue);
     const retrievedValue = await redisClient.get(testKey);
@@ -59,18 +59,18 @@ describe('RedisSingleton Tests', () => {
     const setMock = jest.spyOn(redisClient, 'set');
     const delMock = jest.spyOn(redisClient, 'del');
     const getMock = jest.spyOn(redisClient, 'get');
-    
+
     // Test data
     const testKey = 'test-key-to-delete';
     const testValue = 'test-value';
-    
+
     // Act
     await redisClient.set(testKey, testValue);
     expect(setMock).toHaveBeenCalledWith(testKey, testValue);
-    
+
     await redisClient.del(testKey);
     expect(delMock).toHaveBeenCalledWith(testKey);
-    
+
     // Mock the get response after deletion
     getMock.mockResolvedValueOnce(null);
     const retrievedValue = await redisClient.get(testKey);
@@ -83,15 +83,15 @@ describe('RedisSingleton Tests', () => {
     // Setup spy
     const setMock = jest.spyOn(redisClient, 'set');
     const getMock = jest.spyOn(redisClient, 'get');
-    
+
     // Test data
     const testKey = 'test-key-with-expiry';
     const testValue = 'expiry-value';
-    
+
     // Act
     await redisClient.set(testKey, testValue, 'EX', 60);
     expect(setMock).toHaveBeenCalledWith(testKey, testValue, 'EX', 60);
-    
+
     // Mock the get response
     getMock.mockResolvedValueOnce(testValue);
     const retrievedValue = await redisClient.get(testKey);
@@ -99,4 +99,4 @@ describe('RedisSingleton Tests', () => {
     // Assert
     expect(retrievedValue).toBe(testValue);
   });
-}); 
+});

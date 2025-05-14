@@ -1,5 +1,4 @@
 const socketInstance = require('../SocketSingleton');
-const redisClient = require('../RedisSingleton');
 
 class DrawingSocketHandler {
   constructor() {
@@ -22,7 +21,7 @@ class DrawingSocketHandler {
     this.io.on('connection', (socket) => {
       // Drawing events
       socket.on('draw', (data) => this.handleDraw(socket, data));
-      socket.on('clear-canvas', (data) => this.handleClearCanvas(socket));
+      socket.on('clear-canvas', () => this.handleClearCanvas(socket));
       socket.on('change-color', (data) => this.handleChangeColor(socket, data));
       socket.on('change-tool', (data) => this.handleChangeTool(socket, data));
     });
@@ -35,15 +34,15 @@ class DrawingSocketHandler {
    */
   handleDraw(socket, data) {
     const { roomCode, userId } = socket;
-    
+
     if (!roomCode) return;
-    
+
     // Check if user is the current drawer (should be done in a full implementation)
-    
+
     // Forward drawing data to everyone except sender
     socket.to(roomCode).emit('draw-update', {
       ...data,
-      userId
+      userId,
     });
   }
 
@@ -53,13 +52,13 @@ class DrawingSocketHandler {
    */
   handleClearCanvas(socket) {
     const { roomCode, userId } = socket;
-    
+
     if (!roomCode) return;
-    
+
     // Notify everyone in the room that canvas was cleared
     socket.to(roomCode).emit('canvas-cleared', {
       userId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -71,14 +70,14 @@ class DrawingSocketHandler {
   handleChangeColor(socket, data) {
     const { roomCode, userId } = socket;
     const { color } = data;
-    
+
     if (!roomCode || !color) return;
-    
+
     // Notify everyone in the room about color change (optional)
     socket.to(roomCode).emit('color-changed', {
       userId,
       color,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -90,17 +89,17 @@ class DrawingSocketHandler {
   handleChangeTool(socket, data) {
     const { roomCode, userId } = socket;
     const { tool, size } = data;
-    
+
     if (!roomCode || !tool) return;
-    
+
     // Notify everyone in the room about tool change (optional)
     socket.to(roomCode).emit('tool-changed', {
       userId,
       tool,
       size,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 }
 
-module.exports = new DrawingSocketHandler(); 
+module.exports = new DrawingSocketHandler();

@@ -2,7 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketSingleton = require('./SocketSingleton');
-const redisClient = require('./RedisSingleton');
+// Initialize Redis connection
+require('./RedisSingleton');
 
 // Import socket handlers
 const roomSocketHandler = require('./socket-handlers/RoomSocketHandler');
@@ -18,7 +19,7 @@ const roomRouter = require('./routers/RoomRouter');
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use("/rooms", roomRouter);
+app.use('/rooms', roomRouter);
 
 // Initialize Socket.io singleton
 socketSingleton.setup(server);
@@ -43,8 +44,7 @@ app.get('/health', (req, res) => {
     server.listen(port, () => {
       console.log(`Game service running on http://localhost:${port}`);
     });
-
   } catch (error) {
-    console.log("Error in game service", error);
+    console.log('Error in game service', error);
   }
 })();

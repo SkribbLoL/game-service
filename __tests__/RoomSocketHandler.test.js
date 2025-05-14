@@ -6,11 +6,11 @@
 jest.mock('../RedisSingleton', () => ({
   get: jest.fn(),
   set: jest.fn(),
-  del: jest.fn()
+  del: jest.fn(),
 }));
 
 jest.mock('../SocketSingleton', () => ({
-  getIO: jest.fn()
+  getIO: jest.fn(),
 }));
 
 const redisClient = require('../RedisSingleton');
@@ -29,7 +29,7 @@ describe('RoomSocketHandler Tests', () => {
     mockIo = {
       on: jest.fn(),
       to: jest.fn().mockReturnThis(),
-      emit: jest.fn()
+      emit: jest.fn(),
     };
 
     // Mock socket instance
@@ -40,7 +40,7 @@ describe('RoomSocketHandler Tests', () => {
       join: jest.fn(),
       leave: jest.fn(),
       emit: jest.fn(),
-      on: jest.fn()
+      on: jest.fn(),
     };
 
     // Mock socketInstance.getIO to return our mock
@@ -64,21 +64,24 @@ describe('RoomSocketHandler Tests', () => {
     const roomData = {
       code: 'ABCDEF',
       name: 'Test Room',
-      users: [
-        { id: 'user123', nickname: 'TestUser', isHost: true }
-      ]
+      users: [{ id: 'user123', nickname: 'TestUser', isHost: true }],
     };
 
     // Mock Redis response
     redisClient.get.mockResolvedValue(JSON.stringify(roomData));
 
     // Act
-    await roomHandler.handleJoinRoom(mockSocket, { roomCode: 'ABCDEF', userId: 'user123' });
+    await roomHandler.handleJoinRoom(mockSocket, {
+      roomCode: 'ABCDEF',
+      userId: 'user123',
+    });
 
     // Assert
     expect(redisClient.get).toHaveBeenCalledWith('room:ABCDEF');
     expect(mockSocket.join).toHaveBeenCalledWith('ABCDEF');
-    expect(mockSocket.emit).toHaveBeenCalledWith('room-joined', { room: roomData });
+    expect(mockSocket.emit).toHaveBeenCalledWith('room-joined', {
+      room: roomData,
+    });
   });
 
   test('should handle join room error when room not found', async () => {
@@ -86,10 +89,15 @@ describe('RoomSocketHandler Tests', () => {
     redisClient.get.mockResolvedValue(null);
 
     // Act
-    await roomHandler.handleJoinRoom(mockSocket, { roomCode: 'NONEXISTENT', userId: 'user123' });
+    await roomHandler.handleJoinRoom(mockSocket, {
+      roomCode: 'NONEXISTENT',
+      userId: 'user123',
+    });
 
     // Assert
-    expect(mockSocket.emit).toHaveBeenCalledWith('error', { message: 'Room not found' });
+    expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+      message: 'Room not found',
+    });
   });
 
   test('should handle leave room successfully', async () => {
@@ -99,8 +107,8 @@ describe('RoomSocketHandler Tests', () => {
       name: 'Test Room',
       users: [
         { id: 'user123', nickname: 'TestUser', isHost: true },
-        { id: 'user456', nickname: 'OtherUser', isHost: false }
-      ]
+        { id: 'user456', nickname: 'OtherUser', isHost: false },
+      ],
     };
 
     // Set up socket with room data
@@ -138,9 +146,9 @@ describe('RoomSocketHandler Tests', () => {
       name: 'Test Room',
       users: [
         { id: 'user123', nickname: 'TestUser', isHost: true },
-        { id: 'user456', nickname: 'OtherUser', isHost: false }
+        { id: 'user456', nickname: 'OtherUser', isHost: false },
       ],
-      gameStarted: false
+      gameStarted: false,
     };
 
     // Set up socket with room data
@@ -176,8 +184,11 @@ describe('RoomSocketHandler Tests', () => {
     expect(updatedRoom.rounds).toBe(5);
     expect(updatedRoom.currentRound).toBe(1);
     expect(mockIo.to).toHaveBeenCalledWith('ABCDEF');
-    expect(mockIo.emit).toHaveBeenCalledWith('game-started', expect.objectContaining({
-      message: 'Game started!'
-    }));
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      'game-started',
+      expect.objectContaining({
+        message: 'Game started!',
+      })
+    );
   });
-}); 
+});
