@@ -211,36 +211,6 @@ class SocketManager {
           userId,
         });
       });
-
-      // Chat/guessing
-      socket.on('chat-message', async (data) => {
-        try {
-          const { roomCode, userId } = socket;
-          const { message } = data;
-
-          if (!roomCode || !message) return;
-
-          // Get room data
-          const roomData = await redisClient.get(`room:${roomCode}`);
-          if (!roomData) return;
-
-          const room = JSON.parse(roomData);
-
-          // Find user
-          const user = room.users.find((u) => u.id === userId);
-          if (!user) return;
-
-          // Send message to all users in the room
-          this.io.to(roomCode).emit('chat-message', {
-            userId,
-            nickname: user.nickname,
-            message,
-            timestamp: Date.now(),
-          });
-        } catch (error) {
-          console.error('Error sending chat message:', error);
-        }
-      });
     });
   }
 

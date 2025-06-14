@@ -2,8 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketSingleton = require('./SocketSingleton');
+const MessageBus = require('./MessageBus');
 // Initialize Redis connection
-require('./RedisSingleton');
+const redisClient = require('./RedisSingleton');
 
 // Import socket handlers
 const roomSocketHandler = require('./socket-handlers/RoomSocketHandler');
@@ -24,10 +25,6 @@ app.use('/rooms', roomRouter);
 // Initialize Socket.io singleton
 socketSingleton.setup(server);
 
-// Initialize socket handlers
-roomSocketHandler.initialize();
-drawingSocketHandler.initialize();
-
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -36,6 +33,22 @@ app.get('/health', (req, res) => {
 // Start the server
 (async () => {
   try {
+    // Initialize message bus
+    const messageBus = new MessageBus();
+    
+    // Create a game service object for message bus
+    const gameService = {
+      redisClient,
+      handleCorrectGuess:
+        roomSocketHandler.handleCorrectGuess.bind(roomSocketHandler),
+    };
+    
+    await messageBus.initialize(gameService);
+
+    // Initialize socket handlers with message bus
+    roomSocketHandler.initialize(messageBus);
+    drawingSocketHandler.initialize();
+
     // Log errors better
     process.on('unhandledRejection', (error) => {
       console.error('Unhandled Promise Rejection:', error);

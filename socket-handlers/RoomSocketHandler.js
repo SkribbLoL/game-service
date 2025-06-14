@@ -10,13 +10,15 @@ class RoomSocketHandler {
     this.io = null;
     this.redisClient = null;
     this.roundTimers = new Map(); // Track active round timers
+    this.messageBus = null; // Will be injected
   }
 
   /**
    * Initialize the socket handlers
    */
-  initialize() {
+  initialize(messageBus = null) {
     this.io = socketInstance.getIO();
+    this.messageBus = messageBus;
     this.setupEventHandlers();
     console.log('Room socket handlers initialized');
   }
@@ -32,16 +34,34 @@ class RoomSocketHandler {
       socket.on('join-room', (data) => this.handleJoinRoom(socket, data));
       socket.on('leave-room', () => this.handleLeaveRoom(socket));
       socket.on('start-game', (data) => this.handleStartGame(socket, data));
-      socket.on('chat-message', (data) => this.handleChatMessage(socket, data));
       
       // Game events
       socket.on('select-word', (data) => this.handleSelectWord(socket, data));
-      socket.on('guess-word', (data) => this.handleGuessWord(socket, data));
       socket.on('end-round', (data) => this.handleEndRound(socket, data));
       socket.on('restart-game', (data) => this.handleRestartGame(socket, data));
 
+      // Drawing events
+      socket.on('draw', (drawData) => this.handleDraw(socket, drawData));
+
       // Handle disconnections
       socket.on('disconnect', () => this.handleLeaveRoom(socket));
+    });
+  }
+
+  /**
+   * Handle drawing events
+   * @param {Object} socket - Socket instance
+   * @param {Object} drawData - Drawing data
+   */
+  handleDraw(socket, drawData) {
+    const { roomCode, userId } = socket;
+
+    if (!roomCode) return;
+
+    // Forward drawing data to everyone except sender
+    socket.to(roomCode).emit('draw-update', {
+      ...drawData,
+      userId,
     });
   }
 
@@ -300,6 +320,14 @@ class RoomSocketHandler {
         message: `Game started! ${settings.rounds} rounds, ${settings.roundDuration}s per round`,
       });
 
+      // Notify chat service that game started
+      if (this.messageBus) {
+        await this.messageBus.publishGameEvent('game-started', roomCode, {
+          settings,
+          message: 'Game started! Your messages will be treated as guesses.'
+        });
+      }
+
       // Send word options to the drawer
       await this.sendWordOptionsToDrawer(roomCode, room.currentDrawer);
 
@@ -336,12 +364,12 @@ class RoomSocketHandler {
 
       // Find the drawer's socket and send word options
       const drawerSocket = [...this.io.sockets.sockets.values()]
-        .find(s => s.userId === drawerId && s.roomCode === roomCode);
-      
+        .find((s) => s.userId === drawerId && s.roomCode === roomCode);
+
       if (drawerSocket) {
-        drawerSocket.emit('word-options', { 
+        drawerSocket.emit('word-options', {
           words: wordOptions,
-          message: 'Choose a word to draw!'
+          message: 'Choose a word to draw!',
         });
       }
 
@@ -416,6 +444,14 @@ class RoomSocketHandler {
         message: `You are drawing: ${selectedWord}`
       });
 
+      // Notify drawing service about word selection
+      if (this.messageBus) {
+        await this.messageBus.publishGameEvent('word-selected', roomCode, {
+          drawerId: userId,
+          word: selectedWord
+        });
+      }
+
       // Clear any existing timer for this room
       if (this.roundTimers.has(roomCode)) {
         clearTimeout(this.roundTimers.get(roomCode));
@@ -437,84 +473,70 @@ class RoomSocketHandler {
   }
 
   /**
-   * Handle guess attempts during the game
-   * @param {Object} socket - Socket instance
-   * @param {Object} data - Guess data
+   * Handle correct guess (called by message bus)
+   * @param {string} roomCode - Room code
+   * @param {string} userId - User ID who guessed correctly
+   * @param {string} guess - The correct guess
    */
-  async handleGuessWord(socket, data) {
+  async handleCorrectGuess(roomCode, userId, guess) {
     try {
-      const { roomCode, userId } = socket;
-      const { guess } = data;
-
-      if (!roomCode || !guess) return;
-
       // Get room data
       const roomData = await redisClient.get(`room:${roomCode}`);
       if (!roomData) return;
 
       const room = JSON.parse(roomData);
-
-      // Can't guess if you're the drawer or game isn't in drawing phase
-      if (room.currentDrawer === userId || room.gamePhase !== 'drawing') {
-        return;
-      }
-
       const user = room.users.find(u => u.id === userId);
       if (!user) return;
 
-      // Check if guess is correct
-      const isCorrect = guess.toLowerCase().trim() === room.currentWord.toLowerCase();
+      // Award points to the guesser
+      const points = calculateWordPoints(room.currentWord);
+      user.score += points;
 
-      if (isCorrect) {
-        // Award points to the guesser
-        const points = calculateWordPoints(room.currentWord);
-        user.score += points;
+      // Award points to the drawer (half of guesser's points)
+      const drawerPoints = Math.floor(points / 2);
+      const drawer = room.users.find((u) => u.id === room.currentDrawer);
+      if (drawer) {
+        drawer.score += drawerPoints;
+      }
 
-        // Award points to the drawer (half of guesser's points)
-        const drawerPoints = Math.floor(points / 2);
-        const drawer = room.users.find((u) => u.id === room.currentDrawer);
-        if (drawer) {
-          drawer.score += drawerPoints;
-        }
+      // Update room
+      await redisClient.set(
+        `room:${roomCode}`,
+        JSON.stringify(room),
+        'EX',
+        ROOM_TTL_SECONDS
+      );
 
-        // Update room
-        await redisClient.set(
-          `room:${roomCode}`,
-          JSON.stringify(room),
-          'EX',
-          ROOM_TTL_SECONDS
-        );
+      // Notify everyone of correct guess
+      this.io.to(roomCode).emit('correct-guess', {
+        userId,
+        username: user.nickname,
+        word: room.currentWord,
+        points,
+        totalScore: user.score,
+        drawerPoints,
+        drawerScore: drawer?.score || 0,
+        message: `${user.nickname} guessed "${room.currentWord}" correctly! (+${points} points, ${drawer?.nickname} gets +${drawerPoints} points)`
+      });
 
-        // Notify everyone of correct guess
-        this.io.to(roomCode).emit('correct-guess', {
+      // Notify chat service about correct guess
+      if (this.messageBus) {
+        await this.messageBus.publishGameEvent('correct-guess', roomCode, {
           userId,
           username: user.nickname,
           word: room.currentWord,
           points,
-          totalScore: user.score,
-          drawerPoints,
-          drawerScore: drawer?.score || 0,
-          message: `${user.nickname} guessed "${room.currentWord}" correctly! (+${points} points, ${drawer?.nickname} gets +${drawerPoints} points)`
-        });
-
-        // End the round after a short delay
-        setTimeout(() => {
-          this.handleEndRound(socket, { auto: true });
-        }, 2000);
-
-      } else {
-        // Broadcast the guess to everyone
-        this.io.to(roomCode).emit('chat-message', {
-          userId,
-          nickname: user.nickname,
-          message: guess,
-          timestamp: Date.now(),
-          isGuess: true
+          totalScore: user.score
         });
       }
 
+      // End the round after a short delay
+      setTimeout(() => {
+        this.handleEndRound({ roomCode }, { auto: true });
+      }, 2000);
+
     } catch (error) {
-      console.error('Error handling guess:', error);
+      console.error('Error handling correct guess:', error);
     }
   }
 
@@ -563,6 +585,15 @@ class RoomSocketHandler {
           message: `Game ended! Winner: ${winner.nickname} with ${winner.score} points!`
         });
 
+        // Notify chat service that game ended
+        if (this.messageBus) {
+          await this.messageBus.publishGameEvent('game-ended', roomCode, {
+            winner,
+            finalScores: sortedUsers,
+            message: 'Game ended! Back to chat mode.'
+          });
+        }
+
         // Clear the canvas for game end
         this.io.to(roomCode).emit('clear-canvas-game-end', { roomCode });
 
@@ -610,6 +641,14 @@ class RoomSocketHandler {
         // Clear the canvas for the new round
         this.io.to(roomCode).emit('clear-canvas-round', { roomCode });
 
+        // Notify drawing service about new round
+        if (this.messageBus) {
+          await this.messageBus.publishGameEvent('round-started', roomCode, {
+            drawerId: room.currentDrawer,
+            round: room.currentRound
+          });
+        }
+
         // Send word options to the new drawer
         await this.sendWordOptionsToDrawer(roomCode, room.currentDrawer);
 
@@ -617,40 +656,6 @@ class RoomSocketHandler {
       }
     } catch (error) {
       console.error('Error ending round:', error);
-    }
-  }
-
-  /**
-   * Handle chat messages
-   * @param {Object} socket - Socket instance
-   * @param {Object} data - Message data
-   */
-  async handleChatMessage(socket, data) {
-    try {
-      const { roomCode, userId } = socket;
-      const { message } = data;
-
-      if (!roomCode || !message) return;
-
-      // Get room data
-      const roomData = await redisClient.get(`room:${roomCode}`);
-      if (!roomData) return;
-
-      const room = JSON.parse(roomData);
-
-      // Find user
-      const user = room.users.find((u) => u.id === userId);
-      if (!user) return;
-
-      // Send message to all users in the room
-      this.io.to(roomCode).emit('chat-message', {
-        userId,
-        nickname: user.nickname,
-        message,
-        timestamp: Date.now(),
-      });
-    } catch (error) {
-      console.error('Error sending chat message:', error);
     }
   }
 
