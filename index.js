@@ -20,18 +20,13 @@ const roomRouter = require('./routers/RoomRouter');
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/game/rooms', roomRouter);
+app.use('/rooms', roomRouter);
 
 // Initialize Socket.io singleton
 socketSingleton.setup(server);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-// Health check endpoint with prefix
-app.get('/game/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
