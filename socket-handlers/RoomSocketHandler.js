@@ -72,27 +72,37 @@ class RoomSocketHandler {
    */
   async handleJoinRoom(socket, data) {
     try {
+      console.log('🎯 handleJoinRoom called with:', data);
+      console.log('🔍 Socket ID:', socket.id);
+      
       const { roomCode, userId } = data;
 
       if (!roomCode || !userId) {
+        console.log('❌ Missing roomCode or userId');
         return socket.emit('error', {
           message: 'Room code and user ID are required',
         });
       }
 
+      console.log('🔍 Looking for room:', roomCode);
       // Get room data from Redis
       const roomData = await redisClient.get(`room:${roomCode}`);
       if (!roomData) {
+        console.log('❌ Room not found in Redis');
         return socket.emit('error', { message: 'Room not found' });
       }
 
       const room = JSON.parse(roomData);
+      console.log('✅ Room found:', room);
 
       // Check if user exists in the room
       const userExists = room.users.find((user) => user.id === userId);
       if (!userExists) {
+        console.log('❌ User not found in room');
         return socket.emit('error', { message: 'User not found in this room' });
       }
+
+      console.log('✅ User found in room:', userExists);
 
       // Associate socket with user ID and room
       socket.userId = userId;
@@ -100,6 +110,7 @@ class RoomSocketHandler {
 
       // Join socket.io room
       socket.join(roomCode);
+      console.log('✅ Socket joined room:', roomCode);
 
       // Let everyone know someone joined
       this.io.to(roomCode).emit('user-joined', {
@@ -107,13 +118,15 @@ class RoomSocketHandler {
         users: room.users,
         message: `${userExists.nickname} joined the room`,
       });
+      console.log('📢 Emitted user-joined to room');
 
       // Send room data to the user who just joined
       socket.emit('room-joined', { room });
+      console.log('📢 Emitted room-joined to user:', userId);
 
-      console.log(`User ${userId} joined room ${roomCode}`);
+      console.log(`✅ User ${userId} successfully joined room ${roomCode}`);
     } catch (error) {
-      console.error('Error joining room via socket:', error);
+      console.error('💥 Error joining room via socket:', error);
       socket.emit('error', { message: 'Server error' });
     }
   }
