@@ -30,7 +30,7 @@ class SocketSingleton {
         origin: '*', // In production, restrict this to your frontend URL
         methods: ['GET', 'POST'],
       },
-      path: '/socket.io/',
+      path: '/game/socket.io/',
       allowEIO3: true,
     });
 
