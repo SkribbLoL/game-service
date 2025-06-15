@@ -38,7 +38,10 @@ app.get('/game/health', (req, res) => {
 // Start the server
 (async () => {
   try {
+    console.log('🚀 Starting Game Service initialization...');
+    
     // Initialize message bus
+    console.log('📦 Initializing Message Bus...');
     const messageBus = new MessageBus();
     
     // Create a game service object for message bus
@@ -49,20 +52,29 @@ app.get('/game/health', (req, res) => {
     };
     
     await messageBus.initialize(gameService);
+    console.log('✅ Message Bus initialized');
 
     // Initialize socket handlers with message bus
+    console.log('🔌 Initializing Socket Handlers...');
     roomSocketHandler.initialize(messageBus);
     drawingSocketHandler.initialize();
+    console.log('✅ Socket Handlers initialized');
 
     // Log errors better
     process.on('unhandledRejection', (error) => {
-      console.error('Unhandled Promise Rejection:', error);
+      console.error('💥 Unhandled Promise Rejection:', error);
+    });
+
+    process.on('uncaughtException', (error) => {
+      console.error('💥 Uncaught Exception:', error);
     });
 
     server.listen(port, () => {
-      console.log(`Game service running on http://localhost:${port}`);
+      console.log(`✅ Game service running on http://localhost:${port}`);
+      console.log('🎉 Game Service fully initialized and ready!');
     });
   } catch (error) {
-    console.log('Error in game service', error);
+    console.error('💥 Error in game service initialization:', error);
+    process.exit(1);
   }
 })();

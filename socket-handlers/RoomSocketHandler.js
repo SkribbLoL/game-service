@@ -28,7 +28,8 @@ class RoomSocketHandler {
    */
   setupEventHandlers() {
     this.io.on('connection', (socket) => {
-      console.log(`User connected: ${socket.id}`);
+      console.log(`🎯 User connected to game service: ${socket.id}`);
+      console.log(`🔍 Socket handshake:`, socket.handshake);
 
       // Room events
       socket.on('join-room', (data) => this.handleJoinRoom(socket, data));
@@ -44,7 +45,20 @@ class RoomSocketHandler {
       socket.on('draw', (drawData) => this.handleDraw(socket, drawData));
 
       // Handle disconnections
-      socket.on('disconnect', () => this.handleLeaveRoom(socket));
+      socket.on('disconnect', (reason) => {
+        console.log(`🔌 User disconnected from game service: ${socket.id}, reason: ${reason}`);
+        this.handleLeaveRoom(socket);
+      });
+
+      // Handle connection errors
+      socket.on('error', (error) => {
+        console.error(`💥 Socket error for ${socket.id}:`, error);
+      });
+    });
+
+    // Handle Socket.IO server errors
+    this.io.on('error', (error) => {
+      console.error('💥 Socket.IO server error:', error);
     });
   }
 
