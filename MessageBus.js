@@ -24,48 +24,48 @@ class MessageBus {
 
   async connectWithRetry(maxRetries = 5, retryDelay = 5000) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
+    try {
         console.log(`Attempting RabbitMQ connection (attempt ${attempt}/${maxRetries})...`);
         
-        // Connect to RabbitMQ
-        const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
-        this.connection = await amqp.connect(rabbitmqUrl);
-        this.channel = await this.connection.createChannel();
+      // Connect to RabbitMQ
+      const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
+      this.connection = await amqp.connect(rabbitmqUrl);
+      this.channel = await this.connection.createChannel();
 
-        // Declare exchanges
-        await this.channel.assertExchange(this.exchanges.gameEvents, 'topic', { durable: true });
-        await this.channel.assertExchange(this.exchanges.gameRequests, 'direct', { durable: true });
-        await this.channel.assertExchange(this.exchanges.gameResponses, 'direct', { durable: true });
+      // Declare exchanges
+      await this.channel.assertExchange(this.exchanges.gameEvents, 'topic', { durable: true });
+      await this.channel.assertExchange(this.exchanges.gameRequests, 'direct', { durable: true });
+      await this.channel.assertExchange(this.exchanges.gameResponses, 'direct', { durable: true });
 
-        // Declare and bind request queue
-        await this.channel.assertQueue(this.queues.gameRequests, { durable: true });
-        await this.channel.bindQueue(this.queues.gameRequests, this.exchanges.gameRequests, 'game.request');
+      // Declare and bind request queue
+      await this.channel.assertQueue(this.queues.gameRequests, { durable: true });
+      await this.channel.bindQueue(this.queues.gameRequests, this.exchanges.gameRequests, 'game.request');
 
-        // Consume requests from other services
-        await this.channel.consume(this.queues.gameRequests, (msg) => {
-          if (msg) {
-            this.handleServiceRequest(msg);
-          }
-        }, { noAck: false });
+      // Consume requests from other services
+      await this.channel.consume(this.queues.gameRequests, (msg) => {
+        if (msg) {
+          this.handleServiceRequest(msg);
+        }
+      }, { noAck: false });
 
-        // Handle connection errors
-        this.connection.on('error', (err) => {
-          console.error('RabbitMQ connection error:', err);
-        });
+      // Handle connection errors
+      this.connection.on('error', (err) => {
+        console.error('RabbitMQ connection error:', err);
+      });
 
-        this.connection.on('close', () => {
-          console.log('RabbitMQ connection closed');
-        });
+      this.connection.on('close', () => {
+        console.log('RabbitMQ connection closed');
+      });
 
-        console.log('Game service message bus initialized with RabbitMQ');
+      console.log('Game service message bus initialized with RabbitMQ');
         return; // Success, exit retry loop
         
-      } catch (error) {
+    } catch (error) {
         console.error(`RabbitMQ connection attempt ${attempt} failed:`, error.message);
         
         if (attempt === maxRetries) {
           console.error('Failed to initialize RabbitMQ message bus after all retries');
-          throw error;
+      throw error;
         }
         
         console.log(`Retrying in ${retryDelay/1000} seconds...`);

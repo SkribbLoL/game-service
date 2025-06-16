@@ -13,7 +13,7 @@ class RedisClient {
       host: process.env.REDIS_HOST || 'redis-master.default.svc.cluster.local',
       port: process.env.REDIS_PORT || 6379,
       password: process.env.REDIS_PASSWORD,
-      
+
       // Docker Compose configuration (commented out)
       // Uncomment below and comment above for Docker Compose usage
       // host: process.env.REDIS_HOST || 'redis',
