@@ -372,35 +372,67 @@ class RoomSocketHandler {
    */
   async sendWordOptionsToDrawer(roomCode, drawerId) {
     try {
+      console.log(
+        `🎯 sendWordOptionsToDrawer called for drawer ${drawerId} in room ${roomCode}`
+      );
+
       // Get 3 random words
       const wordOptions = getRandomWords(3, 'mixed');
-      
+      console.log(`📝 Generated word options:`, wordOptions);
+
       // Store word options in room data
       const roomData = await redisClient.get(`room:${roomCode}`);
-      if (!roomData) return;
-      
+      if (!roomData) {
+        console.log('❌ Room data not found in Redis');
+        return;
+      }
+
       const room = JSON.parse(roomData);
       room.wordOptions = wordOptions;
-      
+
       await redisClient.set(
         `room:${roomCode}`,
         JSON.stringify(room),
         'EX',
         ROOM_TTL_SECONDS
       );
+      console.log('✅ Word options stored in Redis');
 
-      // Find the drawer's socket and send word options
-      const drawerSocket = [...this.io.sockets.sockets.values()]
-        .find((s) => s.userId === drawerId && s.roomCode === roomCode);
+      // Debug: Log all connected sockets (namespace version)
+      const allSockets = this.io.sockets; // For namespaces, use this.io.sockets directly
+      console.log(`🔍 Total connected sockets: ${allSockets.size}`);
+      
+      // Convert Map to Array to iterate
+      const socketArray = Array.from(allSockets.values());
+      socketArray.forEach((socket, index) => {
+        console.log(
+          `   Socket ${index}: id=${socket.id}, userId=${socket.userId}, roomCode=${socket.roomCode}`
+        );
+      });
+
+      // Find the drawer's socket and send word options (namespace version)
+      const drawerSocket = socketArray.find(
+        (s) => s.userId === drawerId && s.roomCode === roomCode
+      );
 
       if (drawerSocket) {
+        console.log(`✅ Found drawer socket: ${drawerSocket.id}`);
         drawerSocket.emit('word-options', {
           words: wordOptions,
           message: 'Choose a word to draw!',
         });
+        console.log(`📤 Sent word-options event to drawer ${drawerId}`);
+      } else {
+        console.log(
+          `❌ Drawer socket not found for drawer ${drawerId} in room ${roomCode}`
+        );
+        console.log(`🔍 Looking for: userId=${drawerId}, roomCode=${roomCode}`);
       }
 
-      console.log(`Sent word options to drawer ${drawerId} in room ${roomCode}:`, wordOptions);
+      console.log(
+        `Sent word options to drawer ${drawerId} in room ${roomCode}:`,
+        wordOptions
+      );
     } catch (error) {
       console.error('Error sending word options:', error);
     }
