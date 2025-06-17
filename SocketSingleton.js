@@ -25,9 +25,9 @@ class GameSocketSingleton {
     }
 
     this.io = socketIO(server, {
-      // Start with polling only to avoid upgrade issues
-      transports: ['polling'],
-      allowUpgrades: false, // Disable upgrades for now
+      // Enable both polling and websocket for better performance
+      transports: ['polling', 'websocket'],
+      allowUpgrades: true, // Allow upgrade to websockets
       cors: {
         origin: '*', // Configure appropriately for production
         methods: ['GET', 'POST'],
@@ -36,8 +36,8 @@ class GameSocketSingleton {
       // Configure path for ingress routing - this is the key fix!
       path: '/game/socket.io/',
       // Increase timeouts for debugging
-      pingTimeout: 120000,
-      pingInterval: 60000,
+      pingTimeout: 60000, // Reduced from 120000
+      pingInterval: 25000, // Reduced from 60000
       // Add additional options for proxy compatibility
       allowEIO3: true,
       maxHttpBufferSize: 1e6,
