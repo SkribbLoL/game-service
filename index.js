@@ -17,27 +17,6 @@ const port = process.env.PORT || 5000;
 // Load router
 const roomRouter = require('./routers/RoomRouter');
 
-// Add comprehensive request logging BEFORE other middleware
-app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`📥 ${timestamp} - ${req.method} ${req.url}`);
-  console.log(`🔍 Headers:`, {
-    'user-agent': req.headers['user-agent'],
-    'x-forwarded-for': req.headers['x-forwarded-for'],
-    'connection': req.headers['connection'],
-    'upgrade': req.headers['upgrade'],
-    'origin': req.headers['origin']
-  });
-  
-  // Special logging for Socket.IO requests
-  if (req.url.includes('socket.io')) {
-    console.log(`🔌 Socket.IO request detected: ${req.url}`);
-    console.log(`📊 Query params:`, req.query);
-  }
-  
-  next();
-});
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -71,17 +50,6 @@ app.get('/game/health', (req, res) => {
     pid: process.pid,
     podName: process.env.HOSTNAME || 'unknown',
     path: '/game/health'
-  });
-});
-
-// Catch-all route for debugging
-app.use('*', (req, res) => {
-  console.log(`❓ Unhandled route: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ 
-    error: 'Route not found',
-    method: req.method,
-    url: req.originalUrl,
-    timestamp: new Date().toISOString()
   });
 });
 
