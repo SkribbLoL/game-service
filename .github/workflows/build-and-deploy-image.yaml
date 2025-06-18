@@ -7,6 +7,9 @@ on:
 
 env:
   IMG_NAME: veljkoskrbic/skribblol-game-service
+  GKE_CLUSTER: skribblol-cluster
+  GKE_ZONE: europe-west4-a
+  DEPLOYMENT_NAME: game-service-deployment
 
 jobs:
   build-and-deploy:
@@ -18,16 +21,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # or your project's version
+          node-version: '18'
 
       - name: Install dependencies
         run: npm ci
-
-      # - name: Run lint
-      #   run: npm run lint
-
-      # - name: Run tests
-      #   run: npm test
 
       - name: Get short SHA
         uses: benjlevesque/short-sha@v3.0
@@ -47,3 +44,35 @@ jobs:
           tags: |
             ${{ env.IMG_NAME }}:${{ steps.short-sha.outputs.sha }}
             ${{ env.IMG_NAME }}:latest
+
+      # DEPLOY TO GKE
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'  # Add this for newer GKE versions
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+            --zone ${{ env.GKE_ZONE }} \
+            --project ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Deploy to GKE
+        run: |
+          # Check if deployment exists
+          if kubectl get deployment ${{ env.DEPLOYMENT_NAME }} > /dev/null 2>&1; then
+            echo "Updating existing deployment..."
+            kubectl set image deployment/${{ env.DEPLOYMENT_NAME }} \
+              game-service=${{ env.IMG_NAME }}:${{ steps.short-sha.outputs.sha }}
+            
+            # Wait for rollout (timeout after 5 minutes)
+            kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} --timeout=300s
+          else
+            echo "Deployment not found. Skipping..."
+            exit 1
+          fi
