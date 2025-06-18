@@ -199,12 +199,17 @@ class RoomSocketHandler {
           this.roundTimers.delete(roomCode);
         }
 
-        // Calculate winner from remaining players (if any)
-        const sortedUsers = room.users.sort((a, b) => b.score - a.score);
-        const winner =
-          sortedUsers.length > 0
-            ? sortedUsers[0]
-            : { nickname: 'No one', score: 0 };
+        // Calculate rankings from remaining players (if any) with tie handling
+        let rankings;
+        if (room.users.length > 0) {
+          rankings = this.calculateFinalRankings(room.users);
+        } else {
+          rankings = {
+            winners: [{ nickname: 'No one', score: 0 }],
+            finalScores: [],
+            message: 'Game ended due to insufficient players. No winner.'
+          };
+        }
 
         // Update room in Redis first
         await redisClient.set(
@@ -217,9 +222,12 @@ class RoomSocketHandler {
         // Notify remaining users that the game ended due to insufficient players
         this.io.to(roomCode).emit('game-ended', {
           room,
-          winner,
-          finalScores: sortedUsers,
-          message: `Game ended due to insufficient players. ${winner.nickname} wins!`,
+          winners: rankings.winners,
+          winner: rankings.winners[0], // Keep backward compatibility
+          finalScores: rankings.finalScores,
+          message: `Game ended due to insufficient players. ${rankings.winners.length === 1 && rankings.winners[0].nickname !== 'No one' 
+            ? `${rankings.winners[0].nickname} wins!` 
+            : rankings.message}`,
         });
 
         // Notify about user leaving
@@ -603,6 +611,54 @@ class RoomSocketHandler {
   }
 
   /**
+   * Calculate final rankings with proper tie handling
+   * @param {Array} users - Array of user objects with scores
+   * @returns {Object} Object with winners array and formatted ranking message
+   */
+  calculateFinalRankings(users) {
+    // Sort users by score (highest first)
+    const sortedUsers = users.sort((a, b) => b.score - a.score);
+    
+    // Group users by score to handle ties
+    const scoreGroups = {};
+    sortedUsers.forEach(user => {
+      if (!scoreGroups[user.score]) {
+        scoreGroups[user.score] = [];
+      }
+      scoreGroups[user.score].push(user);
+    });
+
+    // Get unique scores in descending order
+    const uniqueScores = Object.keys(scoreGroups)
+      .map(score => parseInt(score))
+      .sort((a, b) => b - a);
+
+    // Determine winners (all players with the highest score)
+    const highestScore = uniqueScores[0];
+    const winners = scoreGroups[highestScore];
+
+    // Create message based on tie situation
+    let message;
+    if (winners.length === 1) {
+      message = `Game ended! Winner: ${winners[0].nickname} with ${highestScore} points!`;
+    } else if (winners.length === users.length) {
+      // Everyone tied
+      const winnerNames = winners.map(w => w.nickname).join(', ');
+      message = `Game ended! It's a tie! Everyone scored ${highestScore} points: ${winnerNames}`;
+    } else {
+      // Some players tied for first place
+      const winnerNames = winners.map(w => w.nickname).join(', ');
+      message = `Game ended! It's a tie for 1st place with ${highestScore} points: ${winnerNames}`;
+    }
+
+    return {
+      winners,
+      finalScores: sortedUsers,
+      message
+    };
+  }
+
+  /**
    * Handle ending the current round
    * @param {Object} socket - Socket instance
    * @param {Object} data - End round data
@@ -627,9 +683,8 @@ class RoomSocketHandler {
         room.gamePhase = 'game-end';
         room.gameStarted = false;
 
-        // Calculate final scores and winner
-        const sortedUsers = room.users.sort((a, b) => b.score - a.score);
-        const winner = sortedUsers[0];
+        // Calculate final rankings with proper tie handling
+        const rankings = this.calculateFinalRankings(room.users);
 
         // Update room in Redis
         await redisClient.set(
@@ -642,18 +697,20 @@ class RoomSocketHandler {
         // Notify everyone that the game has ended
         this.io.to(roomCode).emit('game-ended', {
           room,
-          winner,
-          finalScores: sortedUsers,
-          message: `Game ended! Winner: ${winner.nickname} with ${winner.score} points!`
+          winners: rankings.winners,
+          winner: rankings.winners[0], // Keep backward compatibility
+          finalScores: rankings.finalScores,
+          message: rankings.message,
         });
 
         // Notify chat service that game ended
         if (this.messageBus) {
-          await this.messageBus.publishGameEvent('game-ended', roomCode, {
-            winner,
-            finalScores: sortedUsers,
-            message: 'Game ended! Back to chat mode.'
-          });
+          this.messageBus.publishGameEvent('game-ended', roomCode, {
+            winners: rankings.winners,
+            winner: rankings.winners[0], // Keep backward compatibility
+            finalScores: rankings.finalScores,
+            message: 'Game ended! Back to chat mode.',
+          }).catch(err => console.log('Chat service notification failed:', err.message));
         }
 
         // Clear the canvas for game end
@@ -665,7 +722,7 @@ class RoomSocketHandler {
           this.roundTimers.delete(roomCode);
         }
 
-        console.log(`Game ended in room ${roomCode}. Winner: ${winner.nickname} (${winner.score} points)`);
+        console.log(`Game ended in room ${roomCode}. Winner: ${rankings.winners[0].nickname} (${rankings.winners[0].score} points)`);
       } else {
         // Clear any existing timer for this room
         if (this.roundTimers.has(roomCode)) {
