@@ -856,8 +856,22 @@ class RoomSocketHandler {
       // Notify all players that the game has been restarted
       this.io.to(roomCode).emit('game-restarted', {
         room,
-        message: 'Game restarted! Waiting for host to configure settings and start a new game.'
+        message: 'Game restarted! Waiting for host to configure settings and start a new game.',
       });
+
+      // Notify chat service that game restarted to clear chat
+      if (this.messageBus) {
+        this.messageBus.publishGameEvent('game-restarted', roomCode, {
+          message: 'Game restarted! Chat cleared.',
+        }).catch(err => console.log('Chat service game-restarted notification failed:', err.message));
+      }
+
+      // Notify drawing service that game restarted to clear canvas
+      if (this.messageBus) {
+        this.messageBus.publishGameEvent('game-restarted', roomCode, {
+          message: 'Game restarted! Canvas cleared.',
+        }).catch(err => console.log('Drawing service game-restarted notification failed:', err.message));
+      }
 
       // Clear the canvas for game restart
       this.io.to(roomCode).emit('clear-canvas-game-end', { roomCode });
