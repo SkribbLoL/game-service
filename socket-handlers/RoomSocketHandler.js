@@ -207,7 +207,7 @@ class RoomSocketHandler {
           rankings = {
             winners: [{ nickname: 'No one', score: 0 }],
             finalScores: [],
-            message: 'Game ended due to insufficient players. No winner.'
+            message: 'Game ended due to insufficient players. No winner.',
           };
         }
 
@@ -225,9 +225,12 @@ class RoomSocketHandler {
           winners: rankings.winners,
           winner: rankings.winners[0], // Keep backward compatibility
           finalScores: rankings.finalScores,
-          message: `Game ended due to insufficient players. ${rankings.winners.length === 1 && rankings.winners[0].nickname !== 'No one' 
-            ? `${rankings.winners[0].nickname} wins!` 
-            : rankings.message}`,
+          message: `Game ended due to insufficient players. ${
+            rankings.winners.length === 1 &&
+            rankings.winners[0].nickname !== 'No one'
+              ? `${rankings.winners[0].nickname} wins!`
+              : rankings.message
+          }`,
         });
 
         // Notify about user leaving
@@ -855,6 +858,9 @@ class RoomSocketHandler {
         room,
         message: 'Game restarted! Waiting for host to configure settings and start a new game.'
       });
+
+      // Clear the canvas for game restart
+      this.io.to(roomCode).emit('clear-canvas-game-end', { roomCode });
 
       console.log(`Game restarted in room ${roomCode} by host ${user.nickname}`);
     } catch (error) {
