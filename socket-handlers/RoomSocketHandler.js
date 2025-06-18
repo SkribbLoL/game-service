@@ -500,15 +500,15 @@ class RoomSocketHandler {
       // Send the actual word only to the drawer
       socket.emit('drawer-word', {
         word: selectedWord,
-        message: `You are drawing: ${selectedWord}`
+        message: `You are drawing: ${selectedWord}`,
       });
 
-      // Notify drawing service about word selection
+      // Notify drawing service about word selection (async, don't wait)
       if (this.messageBus) {
-        await this.messageBus.publishGameEvent('word-selected', roomCode, {
+        this.messageBus.publishGameEvent('word-selected', roomCode, {
           drawerId: userId,
-          word: selectedWord
-        });
+          word: selectedWord,
+        }).catch(err => console.log('Drawing service notification failed:', err.message));
       }
 
       // Clear any existing timer for this room
@@ -578,9 +578,9 @@ class RoomSocketHandler {
         message: `🎉 ${user.nickname} got it! The word was "${room.currentWord}" (+${points} pts)${drawer ? `, ${drawer.nickname} gets +${drawerPoints} pts` : ''}`
       });
 
-      // Notify chat service about correct guess with detailed points
+      // Notify chat service about correct guess with detailed points (async, don't wait)
       if (this.messageBus) {
-        await this.messageBus.publishGameEvent('correct-guess', roomCode, {
+        this.messageBus.publishGameEvent('correct-guess', roomCode, {
           userId,
           username: user.nickname,
           word: room.currentWord,
@@ -588,8 +588,8 @@ class RoomSocketHandler {
           totalScore: user.score,
           drawerPoints,
           drawerScore: drawer?.score || 0,
-          message: `Points awarded: ${user.nickname} +${points} pts, ${drawer?.nickname} +${drawerPoints} pts`
-        });
+          message: `Points awarded: ${user.nickname} +${points} pts, ${drawer?.nickname} +${drawerPoints} pts`,
+        }).catch(err => console.log('Chat service notification failed:', err.message));
       }
 
       // End the round after a 5 second delay to let players see the result
