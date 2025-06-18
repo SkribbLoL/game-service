@@ -575,7 +575,7 @@ class RoomSocketHandler {
         totalScore: user.score,
         drawerPoints,
         drawerScore: drawer?.score || 0,
-        message: `${user.nickname} guessed "${room.currentWord}" correctly! (+${points} points, ${drawer?.nickname} gets +${drawerPoints} points)`
+        message: `🎉 ${user.nickname} got it! The word was "${room.currentWord}" (+${points} pts)${drawer ? `, ${drawer.nickname} gets +${drawerPoints} pts` : ''}`
       });
 
       // Notify chat service about correct guess
@@ -589,10 +589,10 @@ class RoomSocketHandler {
         });
       }
 
-      // End the round after a short delay
+      // End the round after a 5 second delay to let players see the result
       setTimeout(() => {
         this.handleEndRound({ roomCode }, { auto: true });
-      }, 2000);
+      }, 5000);
 
     } catch (error) {
       console.error('Error handling correct guess:', error);
