@@ -7,7 +7,7 @@ on:
 
 env:
   IMG_NAME: veljkoskrbic/skribblol-game-service
-  GKE_CLUSTER: skribblol-cluster
+  GKE_CLUSTER: skribblol-cluster-gcp
   GKE_ZONE: europe-west4-a
   DEPLOYMENT_NAME: game-service-deployment
 
