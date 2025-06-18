@@ -697,18 +697,27 @@ class RoomSocketHandler {
         // Notify all players about the new round
         this.io.to(roomCode).emit('new-round', {
           room,
-          message: `Round ${room.currentRound}/${room.rounds} starting! ${room.users[nextDrawerIndex].nickname}'s turn to draw.`
+          message: `Round ${room.currentRound}/${room.rounds} starting! ${room.users[nextDrawerIndex].nickname}'s turn to draw.`,
         });
 
         // Clear the canvas for the new round
         this.io.to(roomCode).emit('clear-canvas-round', { roomCode });
 
+        // Notify chat service about new round to clear chat
+        if (this.messageBus) {
+          this.messageBus.publishGameEvent('new-round', roomCode, {
+            round: room.currentRound,
+            drawerId: room.currentDrawer,
+            message: 'New round started! Chat cleared.',
+          }).catch(err => console.log('Chat service new round notification failed:', err.message));
+        }
+
         // Notify drawing service about new round
         if (this.messageBus) {
-          await this.messageBus.publishGameEvent('round-started', roomCode, {
+          this.messageBus.publishGameEvent('round-started', roomCode, {
             drawerId: room.currentDrawer,
-            round: room.currentRound
-          });
+            round: room.currentRound,
+          }).catch(err => console.log('Drawing service notification failed:', err.message));
         }
 
         // Send word options to the new drawer
