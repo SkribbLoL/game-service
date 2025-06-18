@@ -578,14 +578,17 @@ class RoomSocketHandler {
         message: `🎉 ${user.nickname} got it! The word was "${room.currentWord}" (+${points} pts)${drawer ? `, ${drawer.nickname} gets +${drawerPoints} pts` : ''}`
       });
 
-      // Notify chat service about correct guess
+      // Notify chat service about correct guess with detailed points
       if (this.messageBus) {
         await this.messageBus.publishGameEvent('correct-guess', roomCode, {
           userId,
           username: user.nickname,
           word: room.currentWord,
           points,
-          totalScore: user.score
+          totalScore: user.score,
+          drawerPoints,
+          drawerScore: drawer?.score || 0,
+          message: `Points awarded: ${user.nickname} +${points} pts, ${drawer?.nickname} +${drawerPoints} pts`
         });
       }
 
