@@ -569,6 +569,9 @@ class RoomSocketHandler {
         drawer.score += drawerPoints;
       }
 
+      // Check if this will be the last round after ending
+      const isLastRound = room.currentRound >= room.rounds;
+
       // Update room
       await redisClient.set(
         `room:${roomCode}`,
@@ -586,7 +589,8 @@ class RoomSocketHandler {
         totalScore: user.score,
         drawerPoints,
         drawerScore: drawer?.score || 0,
-        message: `🎉 ${user.nickname} got it! The word was "${room.currentWord}" (+${points} pts)${drawer ? `, ${drawer.nickname} gets +${drawerPoints} pts` : ''}`
+        isLastRound,
+        message: `🎉 ${user.nickname} got it! The word was "${room.currentWord}" (+${points} pts)${drawer ? `, ${drawer.nickname} gets +${drawerPoints} pts` : ''}`,
       });
 
       // Notify chat service about correct guess with detailed points (async, don't wait)
