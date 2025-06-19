@@ -219,19 +219,31 @@ class RoomSocketHandler {
           ROOM_TTL_SECONDS
         );
 
-        // Notify remaining users that the game ended due to insufficient players
+        // Notify everyone that the game has ended
         this.io.to(roomCode).emit('game-ended', {
           room,
           winners: rankings.winners,
           winner: rankings.winners[0], // Keep backward compatibility
           finalScores: rankings.finalScores,
-          message: `Game ended due to insufficient players. ${
-            rankings.winners.length === 1 &&
-            rankings.winners[0].nickname !== 'No one'
-              ? `${rankings.winners[0].nickname} wins!`
-              : rankings.message
-          }`,
+          message: rankings.message,
         });
+
+        // FORCE CLEAR EVERYTHING - Direct approach
+        this.io.to(roomCode).emit('force-clear-chat');
+        this.io.to(roomCode).emit('force-clear-canvas');
+
+        // Notify chat service that game ended
+        if (this.messageBus) {
+          this.messageBus.publishGameEvent('game-ended', roomCode, {
+            winners: rankings.winners,
+            winner: rankings.winners[0], // Keep backward compatibility
+            finalScores: rankings.finalScores,
+            message: 'Game ended! Back to chat mode.',
+          }).catch(err => console.log('Chat service notification failed:', err.message));
+        }
+
+        // Clear the canvas for game end
+        this.io.to(roomCode).emit('clear-canvas-game-end', { roomCode });
 
         // Notify about user leaving
         this.io.to(roomCode).emit('user-left', {
@@ -710,6 +722,10 @@ class RoomSocketHandler {
           message: rankings.message,
         });
 
+        // FORCE CLEAR EVERYTHING - Direct approach
+        this.io.to(roomCode).emit('force-clear-chat');
+        this.io.to(roomCode).emit('force-clear-canvas');
+
         // Notify chat service that game ended
         if (this.messageBus) {
           this.messageBus.publishGameEvent('game-ended', roomCode, {
@@ -763,6 +779,10 @@ class RoomSocketHandler {
           room,
           message: `Round ${room.currentRound}/${room.rounds} starting! ${room.users[nextDrawerIndex].nickname}'s turn to draw.`,
         });
+
+        // FORCE CLEAR EVERYTHING for new round
+        this.io.to(roomCode).emit('force-clear-chat');
+        this.io.to(roomCode).emit('force-clear-canvas');
 
         // Clear the canvas for the new round
         this.io.to(roomCode).emit('clear-canvas-round', { roomCode });
@@ -862,6 +882,10 @@ class RoomSocketHandler {
         room,
         message: 'Game restarted! Waiting for host to configure settings and start a new game.',
       });
+
+      // FORCE CLEAR EVERYTHING on game restart
+      this.io.to(roomCode).emit('force-clear-chat');
+      this.io.to(roomCode).emit('force-clear-canvas');
 
       // Notify chat service that game restarted to clear chat
       if (this.messageBus) {
