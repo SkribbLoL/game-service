@@ -32,6 +32,41 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    // 🔥 ARTIFICIAL CPU WORK FOR HPA TESTING 🔥
+    // This is intentionally inefficient to force CPU usage
+    let cpuWorkResult = 0;
+    for (let i = 0; i < 100000; i++) {
+      cpuWorkResult += Math.sqrt(Math.random() * 1000) * Math.sin(i / 1000);
+      if (i % 10000 === 0) {
+        // Force some string operations
+        const tempStr = Math.random().toString(36).repeat(10);
+        cpuWorkResult += tempStr.length;
+      }
+    }
+
+    // More CPU work: JSON parsing/stringifying
+    const dummyData = Array(50)
+      .fill(0)
+      .map((_, idx) => ({
+        id: idx,
+        value: Math.random().toString(36),
+        nested: Array(10)
+          .fill(0)
+          .map(() => Math.random() * 1000),
+      }));
+
+    for (let j = 0; j < 5; j++) {
+      const stringified = JSON.stringify(dummyData);
+      const parsed = JSON.parse(stringified);
+      cpuWorkResult += parsed.length;
+    }
+    
+    // Use the result to prevent optimization
+    if (cpuWorkResult < 0) {
+      console.log('Impossible condition:', cpuWorkResult);
+    }
+    // 🔥 END ARTIFICIAL CPU WORK 🔥
+
     const roomCode = nanoid(6).toUpperCase(); // Generate uppercase code for readability
 
     // Create a new user with a unique ID
