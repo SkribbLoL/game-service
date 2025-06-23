@@ -153,4 +153,91 @@ router.delete('/:roomCode', async (req, res) => {
   }
 });
 
+// 🔥 STRESS TEST ROUTE FOR HPA TESTING 🔥
+router.post('/stress-test', async (req, res) => {
+  const { intensity = 100000 } = req.body;
+
+  try {
+    const startTime = Date.now();
+    let cpuWorkResult = 0;
+
+    // HEAVY CPU WORK - Math operations
+    for (let i = 0; i < intensity; i++) {
+      cpuWorkResult +=
+        Math.sqrt(Math.random() * 1000) *
+        Math.sin(i / 1000) *
+        Math.cos(i / 500);
+
+      if (i % 10000 === 0) {
+        // String operations
+        const tempStr = Math.random().toString(36).repeat(20);
+        cpuWorkResult += tempStr.split('').reverse().join('').length;
+
+        // Array operations
+        const tempArray = Array(100)
+          .fill(0)
+          .map(() => Math.random() * 1000);
+        cpuWorkResult += tempArray.reduce((sum, val) => sum + val, 0) / 1000;
+      }
+
+      if (i % 25000 === 0) {
+        // Heavy JSON operations
+        const complexObj = {
+          timestamp: Date.now(),
+          data: Array(50)
+            .fill(0)
+            .map((_, idx) => ({
+              id: idx,
+              value: Math.random().toString(36),
+              nested: {
+                level1: Array(20)
+                  .fill(0)
+                  .map(() => Math.random()),
+                level2: Math.random().toString(36).repeat(10),
+              },
+            })),
+        };
+
+        // Serialize and parse multiple times
+        for (let j = 0; j < 10; j++) {
+          const serialized = JSON.stringify(complexObj);
+          const parsed = JSON.parse(serialized);
+          cpuWorkResult += parsed.data.length;
+        }
+      }
+    }
+
+    // More intensive operations
+    const bigArray = Array(1000)
+      .fill(0)
+      .map(() => Math.random());
+    bigArray.sort();
+    cpuWorkResult += bigArray[0];
+
+    // Hash-like operations
+    let hashWork = '';
+    for (let k = 0; k < 1000; k++) {
+      hashWork += Math.random().toString(36).substring(2, 15);
+    }
+    cpuWorkResult += hashWork.length;
+
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    // Use the result to prevent optimization
+    const finalResult = Math.round(cpuWorkResult);
+
+    return res.status(200).json({
+      message: 'Stress test completed successfully',
+      duration: `${duration}ms`,
+      intensity: intensity,
+      result: finalResult,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error in stress test:', error);
+    return res.status(500).json({ error: 'Stress test failed' });
+  }
+});
+
 module.exports = router;
