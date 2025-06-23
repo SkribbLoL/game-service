@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 env:
   IMG_NAME: veljkoskrbic/skribblol-game-service
@@ -14,9 +16,12 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for SonarQube PR analysis
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -25,6 +30,22 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      # OPTIONAL: Enforce Quality Gate
+      # - name: SonarQube Quality Gate Check
+      #   uses: SonarSource/sonarqube-quality-gate-action@v1
+      #   timeout-minutes: 5
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Get short SHA
         uses: benjlevesque/short-sha@v3.0
@@ -45,34 +66,29 @@ jobs:
             ${{ env.IMG_NAME }}:${{ steps.short-sha.outputs.sha }}
             ${{ env.IMG_NAME }}:latest
 
-      # DEPLOY TO GKE
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      # - name: Authenticate to Google Cloud
+      #   uses: google-github-actions/auth@v2
+      #   with:
+      #     credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: 'gke-gcloud-auth-plugin'  # Add this for newer GKE versions
+      # - name: Set up Cloud SDK
+      #   uses: google-github-actions/setup-gcloud@v2
+      #   with:
+      #     install_components: 'gke-gcloud-auth-plugin'
 
-      - name: Get GKE credentials
-        run: |
-          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
-            --zone ${{ env.GKE_ZONE }} \
-            --project ${{ secrets.GCP_PROJECT_ID }}
+      # - name: Get GKE credentials
+      #   run: |
+      #     gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+      #       --zone ${{ env.GKE_ZONE }} \
+      #       --project ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Deploy to GKE
-        run: |
-          # Check if deployment exists
-          if kubectl get deployment ${{ env.DEPLOYMENT_NAME }} > /dev/null 2>&1; then
-            echo "Updating existing deployment..."
-            kubectl set image deployment/${{ env.DEPLOYMENT_NAME }} \
-              game-service=${{ env.IMG_NAME }}:${{ steps.short-sha.outputs.sha }}
-            
-            # Wait for rollout (timeout after 5 minutes)
-            kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} --timeout=300s
-          else
-            echo "Deployment not found. Skipping..."
-            exit 1
-          fi
+      # - name: Deploy to GKE
+      #   run: |
+      #     if kubectl get deployment ${{ env.DEPLOYMENT_NAME }} > /dev/null 2>&1; then
+      #       echo "Updating existing deployment..."
+      #       kubectl set image deployment/${{ env.DEPLOYMENT_NAME }} \
+      #         game-service=${{ env.IMG_NAME }}:${{ steps.short-sha.outputs.sha }}
+      #       kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} --timeout=300s
+      #     else
+      #       echo "Deployment not found. Skipping..."
+      #       exit 1
