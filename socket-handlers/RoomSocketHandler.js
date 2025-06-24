@@ -86,6 +86,12 @@ class RoomSocketHandler {
    */
   async handleJoinRoom(socket, data) {
     try {
+      // Handle null socket gracefully
+      if (!socket) {
+        console.error('❌ Socket is null or undefined');
+        return;
+      }
+
       console.log('🎯 handleJoinRoom called with:', data);
       console.log('🔍 Socket ID:', socket.id);
       
@@ -141,7 +147,10 @@ class RoomSocketHandler {
       console.log(`✅ User ${userId} successfully joined room ${roomCode}`);
     } catch (error) {
       console.error('💥 Error joining room via socket:', error);
-      socket.emit('error', { message: 'Server error' });
+      // Only emit error if socket exists
+      if (socket && socket.emit) {
+        socket.emit('error', { message: 'Server error' });
+      }
     }
   }
 
