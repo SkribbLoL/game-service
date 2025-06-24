@@ -114,7 +114,7 @@ describe('RoomRouter - Comprehensive Tests', () => {
       expect(data).toHaveProperty('roomCode');
       expect(data).toHaveProperty('userId');
       expect(data).toHaveProperty('joinUrl');
-      expect(data.roomCode).toMatch(/^[A-Z0-9\-]{6}$/); // 6 characters: uppercase letters, numbers, or hyphens
+      expect(data.roomCode).toMatch(/^[A-Z0-9\-_]{6}$/); // 6 characters: uppercase letters, numbers, hyphens, or underscores
       expect(data.joinUrl).toBe(`/room/${data.roomCode}`);
       
       // Verify room was stored in Redis
